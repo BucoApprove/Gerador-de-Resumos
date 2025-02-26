@@ -92,7 +92,7 @@ def gerar_resumo(transcricao, client):
     resposta = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=5000
+        max_tokens=7000
     )
     texto_resumo = resposta.choices[0].message.content
 
@@ -172,7 +172,7 @@ def ajustar_resumo(historico, instrucao_usuario, client):
     resposta = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=5000
+        max_tokens=7000
     )
     texto_resumo = resposta.choices[0].message.content
 
