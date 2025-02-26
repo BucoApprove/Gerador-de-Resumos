@@ -66,16 +66,23 @@ def gerar_resumo(transcricao, client):
     3) Perguntas e respostas baseadas no texto:
     4) Exemplos de copy:
 
-    ### Instruções Detalhadas ###
-    1) Liste os 5-6 pontos principais em formato de tópicos detalhados, incluindo:
-       - Introdução (mantendo a voz do professor/palestrante)
-       - Conceito Principal
-       - Técnicas Ensinadas (com exemplos)
-       - Os Melhores Exemplos Dados
-       - Como Aplicar na Prática
-       - Frases-Chave do Apresentador
+    ### Instruções Detalhadas FAÇA UM RESUMO PARA CADA UM DESTES PONTOS ###
+    1) Liste os 12 pontos principais em formato de tópicos E COLOQUE UM RESUMO PARA CADA TÓPICO, incluindo:
 
-    2) Elabore um resumo técnico e abrangente da transcrição, destacando todos os pontos técnicos relevantes, conceitos importantes e metodologias apresentadas. Não limite o número de parágrafos e priorize a completude das informações técnicas.
+        - Introdução (Mantendo a voz do professor)
+        - Conceito Principal
+        - Técnicas Ensinadas (Mantendo os exemplos)
+        - O Melhor Exemplo Dado na Aula
+        - Como Aplicar Isso em Copywriting
+        - Frases-Chave do Professor
+        - Gatilhos Mentais Utilizados na Aula
+        - Padrões e Estruturas de Copy Identificados
+        - Conceitos-Chave que Aumentam a Persuasão
+        - Exemplos de Frases de Impacto Criadas Durante a Aula
+        - Dúvidas Comuns e Objeções que Foram Respostas
+        - Desafios e Exercícios Propostos na Aul
+
+    2) Elabore um TEXTO técnico e abrangente da transcrição, destacando todos os pontos técnicos relevantes, conceitos importantes e metodologias apresentadas. Não limite o número de parágrafos e priorize a completude das informações técnicas.
 
     3) Inclua 3-5 perguntas e respostas baseadas no texto, alternando entre questões técnicas e questões mais simples. Forneça respostas completas e detalhadas.
 
@@ -92,7 +99,7 @@ def gerar_resumo(transcricao, client):
     resposta = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=7000
+        max_tokens=8000
     )
     texto_resumo = resposta.choices[0].message.content
 
@@ -172,7 +179,7 @@ def ajustar_resumo(historico, instrucao_usuario, client):
     resposta = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=7000
+        max_tokens=8000
     )
     texto_resumo = resposta.choices[0].message.content
 
