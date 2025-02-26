@@ -1,55 +1,15 @@
-import yt_dlp
-from moviepy.editor import AudioFileClip
 from openai import OpenAI
-import subprocess
+from moviepy.editor import AudioFileClip
 import json
 import os
 import math
 from datetime import datetime
+import io
 
 def get_openai_client(api_key):
     return OpenAI(api_key=api_key)
 
-def baixar_audio_youtube(url):
-    """Baixa o áudio do YouTube usando yt-dlp e retorna o caminho do arquivo."""
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'outtmpl': 'audio_temp.%(ext)s',
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        }],
-        'quiet': True,
-    }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
-    return "audio_temp.mp3"
-
-def get_video_title(url):
-    """Obtém o título do vídeo usando yt-dlp."""
-    result = subprocess.run(
-        ["yt-dlp", "--get-title", url],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode == 0:
-        return result.stdout.strip()
-    return "Vídeo sem título"
-
-def extrair_intervalo_audio(arquivo_audio, inicio_segundos, fim_segundos):
-    """Corta o áudio entre os tempos especificados (usado apenas para YouTube)."""
-    audio = AudioFileClip(arquivo_audio)
-    audio_cortado = audio.subclip(inicio_segundos, fim_segundos)
-    audio_cortado.write_audiofile("audio_cortado.mp3")
-    audio.close()
-    return "audio_cortado.mp3"
-
 def dividir_audio_em_chunks(arquivo_audio, duracao_maxima=300):
-    """
-    Divide um arquivo de áudio em chunks de no máximo 5 minutos (300 segundos)
-    Retorna uma lista de caminhos para os arquivos temporários
-    """
     audio = AudioFileClip(arquivo_audio)
     duracao_total = audio.duration
     
@@ -72,10 +32,6 @@ def dividir_audio_em_chunks(arquivo_audio, duracao_maxima=300):
     return chunks_paths
 
 def transcrever_audio_whisper(arquivo_audio, client, status_callback=None):
-    """
-    Transcreve áudio usando a API da OpenAI (Whisper).
-    Divide automaticamente áudios longos em chunks de 5 minutos.
-    """
     chunks = dividir_audio_em_chunks(arquivo_audio)
     transcricao_completa = ""
     
@@ -101,7 +57,6 @@ def transcrever_audio_whisper(arquivo_audio, client, status_callback=None):
     return transcricao_completa.strip()
 
 def gerar_resumo(transcricao, client):
-    """Gera um resumo estruturado a partir da transcrição em seções separadas."""
     prompt = f"""
     Resuma o seguinte texto em um formato estruturado como conteúdo/conhecimento técnico para alimentar um assistente de IA. Retorne cada seção com conteúdo completo e detalhado, sem omitir informações:
 
@@ -141,7 +96,6 @@ def gerar_resumo(transcricao, client):
     )
     texto_resumo = resposta.choices[0].message.content
 
-    # Dividir o texto retornado em seções
     secoes = {
         "pontos_principais": "",
         "resumo_tecnico": "",
@@ -175,10 +129,8 @@ def gerar_resumo(transcricao, client):
     return secoes
 
 def ajustar_resumo(historico, instrucao_usuario, client):
-    """Ajusta o resumo com base no histórico completo e na instrução do usuário."""
     historico_texto = "\n\n".join([f"{msg['role'].upper()}: {msg['content'] if isinstance(msg['content'], str) else json.dumps(msg['content'])}" for msg in historico])
 
-    # Extrair o resumo mais recente do histórico
     resumo_anterior = None
     for mensagem in reversed(historico):
         if mensagem["role"] == "assistant" and isinstance(mensagem["content"], dict):
@@ -211,15 +163,11 @@ def ajustar_resumo(historico, instrucao_usuario, client):
     4) Exemplos de copy:
     {resumo_anterior['exemplos_copy']}
 
-    Com base nesta instrução do usuário: '{instrucao_usuario}', ajuste o resumo acima mantendo o formato estruturado com as seções separadas:
+    ### Instrução do Usuário ###
+    '{instrucao_usuario}'
 
-    ### Estrutura Obrigatória ###
-    1) Pontos principais em formato de tópicos detalhados:
-    2) Resumo técnico e abrangente da transcrição:
-    3) Perguntas e respostas baseadas no texto:
-    4) Exemplos de copy:
-
-    Realize apenas as alterações solicitadas pelo usuário sem modificar a estrutura do resumo. Forneça apenas o resumo ajustado nas seções numeradas, sem comentários adicionais fora delas. Certifique-se de que cada seção tenha conteúdo completo e reflita as mudanças pedidas.
+    ### Objetivo ###
+    Ajuste o resumo acima APENAS conforme a instrução do usuário. Não gere um novo resumo do zero nem modifique partes que não foram explicitamente solicitadas na instrução. Preserve o formato estruturado com as quatro seções numeradas (1, 2, 3, 4) e mantenha o conteúdo original das seções não afetadas pela instrução. Forneça apenas o resumo ajustado nas seções numeradas, sem comentários adicionais fora delas.
     """
     resposta = client.chat.completions.create(
         model="gpt-4o-mini",
@@ -228,7 +176,6 @@ def ajustar_resumo(historico, instrucao_usuario, client):
     )
     texto_resumo = resposta.choices[0].message.content
 
-    # Dividir o texto retornado em seções
     secoes = {
         "pontos_principais": "",
         "resumo_tecnico": "",
@@ -254,22 +201,18 @@ def ajustar_resumo(historico, instrucao_usuario, client):
         elif secao_atual and linha.strip():
             secoes[secao_atual] += linha + "\n"
     
-    # Remover quebras de linha extras e garantir que as seções não estejam vazias
     for chave in secoes:
         secoes[chave] = secoes[chave].strip()
         if not secoes[chave]:
-            secoes[chave] = resumo_anterior[chave]  # Mantém o conteúdo anterior se não ajustado
+            secoes[chave] = resumo_anterior[chave]  # Preserva o conteúdo original se não ajustado
 
     return secoes
 
-def salvar_resumo_json(dados, nome_arquivo):
-    """Salva os dados em um arquivo JSON com nome personalizado, estruturando as seções do resumo."""
+def salvar_resumo_json(dados, nome_arquivo, return_bytes=False):
     nome_arquivo = "".join(c if c.isalnum() or c in " _-" else "_" for c in nome_arquivo)
-    caminho = f"{nome_arquivo}.json"
     
     dados_json = {
         "titulo": dados["titulo"],
-        "url": dados.get("url"),
         "data_criacao": dados["data_criacao"],
         "resumo": {
             "pontos_principais": dados["resumo"]["pontos_principais"],
@@ -279,6 +222,11 @@ def salvar_resumo_json(dados, nome_arquivo):
         }
     }
     
-    with open(caminho, "w", encoding="utf-8") as f:
-        json.dump(dados_json, f, ensure_ascii=False, indent=4)
-    return caminho
+    if return_bytes:
+        json_str = json.dumps(dados_json, ensure_ascii=False, indent=4)
+        return io.BytesIO(json_str.encode('utf-8'))
+    else:
+        caminho = f"{nome_arquivo}.json"
+        with open(caminho, "w", encoding="utf-8") as f:
+            json.dump(dados_json, f, ensure_ascii=False, indent=4)
+        return caminho
