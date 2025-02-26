@@ -1,11 +1,11 @@
 import streamlit as st
-import time
 from functions import (
     transcrever_audio_whisper, gerar_resumo, get_openai_client, salvar_resumo_json, ajustar_resumo
 )
 import os
 from datetime import datetime
 import streamlit.components.v1 as components
+import time
 
 st.set_page_config(page_title="Gerador de Resumos", layout="wide")
 
@@ -31,7 +31,7 @@ def process_pending_messages():
     if st.session_state.processing:
         try:
             historico = st.session_state.chat_history
-            user_message = historico[-1]["content"]  # Última mensagem do usuário
+            user_message = historico[-1]["content"]
             adjusted_resumo = ajustar_resumo(historico, user_message, client)
             st.session_state.chat_history.append({"role": "assistant", "content": adjusted_resumo})
             st.session_state.last_output = adjusted_resumo
@@ -171,8 +171,15 @@ def process_audio_file(uploaded_file):
         with open(caminho_temp, "wb") as f:
             f.write(uploaded_file.getbuffer())
         
+        # Callback para atualizar o status durante a transcrição
+        def update_status(message):
+            status_text.text(message)
+        
         status_text.text("Iniciando transcrição...")
-        transcricao = transcrever_audio_whisper(caminho_temp, client)
+        transcricao = transcrever_audio_whisper(caminho_temp, client, status_callback=update_status)
+        
+        # Atualiza a barra de progresso com base no número de partes processadas
+        # Como não temos o número exato de partes até o fim, simulamos o progresso até 50%
         progress_bar.progress(50)
         
         status_text.text("Gerando resumo...")
@@ -221,7 +228,6 @@ def generate_interface():
     if st.session_state.audio_info["resumo"]:
         st.success("Resumo gerado com sucesso!")
         
-        # Exibir o último resumo na parte superior
         st.write(f"**Arquivo:** {st.session_state.audio_info['titulo']}")
         st.write("**Último Resumo Atualizado:**")
         ultimo_resumo = st.session_state.last_output if st.session_state.last_output else st.session_state.audio_info["resumo"]
@@ -234,7 +240,6 @@ def generate_interface():
         st.write("4) Exemplos de copy:")
         st.write(ultimo_resumo.get("exemplos_copy", "Não disponível"))
         
-        # Botão para baixar JSON sob demanda
         if st.download_button(
             label="Baixar JSON",
             data=salvar_resumo_json(st.session_state.audio_info, st.session_state.audio_info["titulo"], return_bytes=True),
