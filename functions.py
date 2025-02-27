@@ -66,7 +66,7 @@ def gerar_resumo(transcricao, client):
     3) Perguntas e respostas baseadas no texto:
     4) Exemplos de copy:
 
-    ### Instruções Detalhadas FAÇA UM RESUMO PARA CADA UM DESTES PONTOS ###
+    ### Instruções Detalhadas FAÇA UM TEXTO PARA CADA UM DESTES PONTOS ###
     1) Liste os 12 pontos principais em formato de tópicos E COLOQUE UM RESUMO PARA CADA TÓPICO, incluindo:
 
         - Introdução (Mantendo a voz do professor) (OBRIGATÓRIAMENTE Mínimo 300 palavras)
