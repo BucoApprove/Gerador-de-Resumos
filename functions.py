@@ -183,6 +183,7 @@ def ajustar_resumo(historico, instrucao_usuario, client):
 
     ### Objetivo ###
     Ajuste o resumo acima APENAS conforme a instrução do usuário. Não gere um novo resumo do zero nem modifique partes que não foram explicitamente solicitadas na instrução. Preserve o formato estruturado com as quatro seções numeradas (1, 2, 3, 4) e mantenha o conteúdo original das seções não afetadas pela instrução. Forneça apenas o resumo ajustado nas seções numeradas, sem comentários adicionais fora delas.
+    CASO O USUÁRIO PEÇA QUE O RESUMO COMPLETO SEJA MAIOR, OBEDEÇA O COMANDO E ADICONE MAIS INFORMAÇÕES EM TODOS OS CAMPOS!!!!
     """
     resposta = client.chat.completions.create(
         model="gpt-4o-mini",
