@@ -65,6 +65,14 @@ def sanitize_filename(filename):
         filename = filename.replace(char, '_')
     return filename
 
+def estimate_tokens(text):
+    """Estima o número de tokens com base em palavras e caracteres (aproximadamente 4 caracteres por token)."""
+    if not text:
+        return 0
+    words = len(text.split())
+    chars = len(text)
+    return max(words, chars // 4)  # Usa o maior valor como estimativa conservadora
+
 def show_chat(titulo):
     st.subheader(f"Chat de ajustes - {titulo}")
     
@@ -77,7 +85,7 @@ def show_chat(titulo):
                 if isinstance(msg["content"], dict):
                     texto_completo = (
                         "1) Pontos principais em formato de tópicos detalhados:\n" + msg["content"].get("pontos_principais", "Não disponível") + "\n\n" +
-                        "2) Resumo técnico e abrangente da transcrição:\n" + msg["content"].get("resumo_tecnico", "Não disponível") + "\n\n" +
+                        "2) Resumo prático e completo da transcrição:\n" + msg["content"].get("resumo_pratico", "Não disponível") + "\n\n" +
                         "3) Perguntas e respostas baseadas no texto:\n" + msg["content"].get("perguntas_respostas", "Não disponível") + "\n\n" +
                         "4) Exemplos de copy:\n" + msg["content"].get("exemplos_copy", "Não disponível")
                     )
@@ -171,15 +179,12 @@ def process_audio_file(uploaded_file):
         with open(caminho_temp, "wb") as f:
             f.write(uploaded_file.getbuffer())
         
-        # Callback para atualizar o status durante a transcrição
         def update_status(message):
             status_text.text(message)
         
         status_text.text("Iniciando transcrição...")
         transcricao = transcrever_audio_whisper(caminho_temp, client, status_callback=update_status)
         
-        # Atualiza a barra de progresso com base no número de partes processadas
-        # Como não temos o número exato de partes até o fim, simulamos o progresso até 50%
         progress_bar.progress(50)
         
         status_text.text("Gerando resumo...")
@@ -212,6 +217,29 @@ def process_audio_file(uploaded_file):
 def generate_interface():
     st.title("Gerar Resumo de Áudio")
     
+    if st.session_state.audio_info["transcricao"]:
+        st.subheader("Transcrição do Áudio")
+        st.markdown(
+            f"""
+            <div style="max-height: 150px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background-color: #f9f9f9;">
+                {st.session_state.audio_info["transcricao"]}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        transcricao_tokens = estimate_tokens(st.session_state.audio_info["transcricao"])
+        resumo_tokens = estimate_tokens(
+            st.session_state.audio_info["resumo"]["pontos_principais"] + " " +
+            st.session_state.audio_info["resumo"]["resumo_pratico"] + " " +
+            st.session_state.audio_info["resumo"]["perguntas_respostas"] + " " +
+            st.session_state.audio_info["resumo"]["exemplos_copy"]
+        )
+        st.write(f"**Estimativa de Tokens Usados:**")
+        st.write(f"- Transcrição: ~{transcricao_tokens} tokens")
+        st.write(f"- Resumo Gerado: ~{resumo_tokens} tokens")
+        st.write(f"- Total Estimado: ~{transcricao_tokens + resumo_tokens} tokens")
+        st.markdown("*(Nota: Esta é uma estimativa aproximada baseada em ~4 caracteres por token.)*")
+
     st.write("**Formatos suportados:** MP3, WAV, M4A")
     st.write("Carregue um arquivo de áudio por vez para gerar o resumo.")
     
@@ -233,8 +261,8 @@ def generate_interface():
         ultimo_resumo = st.session_state.last_output if st.session_state.last_output else st.session_state.audio_info["resumo"]
         st.write("1) Pontos principais em formato de tópicos detalhados:")
         st.write(ultimo_resumo.get("pontos_principais", "Não disponível"))
-        st.write("2) Resumo técnico e abrangente da transcrição:")
-        st.write(ultimo_resumo.get("resumo_tecnico", "Não disponível"))
+        st.write("2) Resumo prático e completo da transcrição:")
+        st.write(ultimo_resumo.get("resumo_pratico", "Não disponível"))
         st.write("3) Perguntas e respostas baseadas no texto:")
         st.write(ultimo_resumo.get("perguntas_respostas", "Não disponível"))
         st.write("4) Exemplos de copy:")
