@@ -58,7 +58,7 @@ def transcrever_audio_whisper(arquivo_audio, client, status_callback=None):
 
 def gerar_resumo(transcricao, client):
     prompt = f"""
-    Resuma o seguinte texto em um formato estruturado como conteúdo/conhecimento técnico para alimentar um assistente de IA. Retorne cada seção com conteúdo completo e detalhado, sem omitir informações:
+    Crie um texto a partir do seguinte texto em um formato estruturado como conteúdo/conhecimento técnico para alimentar um assistente de IA. Retorne cada seção com conteúdo completo e detalhado, sem omitir informações:
 
     ### Estrutura Obrigatória ###
     1) Pontos principais em formato de tópicos detalhados:
@@ -69,26 +69,32 @@ def gerar_resumo(transcricao, client):
     ### Instruções Detalhadas FAÇA UM RESUMO PARA CADA UM DESTES PONTOS ###
     1) Liste os 12 pontos principais em formato de tópicos E COLOQUE UM RESUMO PARA CADA TÓPICO, incluindo:
 
-        - Introdução (Mantendo a voz do professor)
-        - Conceito Principal
-        - Técnicas Ensinadas (Mantendo os exemplos)
-        - O Melhor Exemplo Dado na Aula
-        - Como Aplicar Isso em Copywriting
-        - Frases-Chave do Professor
-        - Gatilhos Mentais Utilizados na Aula
-        - Padrões e Estruturas de Copy Identificados
-        - Conceitos-Chave que Aumentam a Persuasão
-        - Exemplos de Frases de Impacto Criadas Durante a Aula
-        - Dúvidas Comuns e Objeções que Foram Respostas
-        - Desafios e Exercícios Propostos na Aul
+        - Introdução (Mantendo a voz do professor) (OBRIGATÓRIAMENTE Mínimo 300 palavras)
+        - Conceito Principal (OBRIGATÓRIAMENTE Mínimo 300 palavras)
+        - Técnicas Ensinadas (Mantendo os exemplos) (OBRIGATÓRIAMENTE Mínimo 300 palavras)
+        - O Melhor Exemplo Dado na Aula. TAMBÉM ESCREVA TODO O EXEMPLO (OBRIGATÓRIAMENTE Mínimo 300 palavras)
+        - Como Aplicar Isso em Copywriting (OBRIGATÓRIAMENTE Mínimo 300 palavras)
+        - Frases-Chave do Professor (OBRIGATÓRIAMENTE Mínimo 300 palavras)
+        - Gatilhos Mentais Utilizados na Aula (OBRIGATÓRIAMENTE Mínimo 300 palavras)
+        - Padrões e Estruturas de Copy Identificados (OBRIGATÓRIAMENTE Mínimo 300 palavras)
+        - Conceitos-Chave que Aumentam a Persuasão (OBRIGATÓRIAMENTE Mínimo 300 palavras)
+        - Exemplos de Frases de Impacto Criadas Durante a Aula (OBRIGATÓRIAMENTE Mínimo 300 palavras)
+        - Dúvidas Comuns e Objeções que Foram Respostas (OBRIGATÓRIAMENTE Mínimo 300 palavras)
+        - Desafios e Exercícios Propostos na Aula (OBRIGATÓRIAMENTE Mínimo 300 palavras)
 
-    2) Elabore um TEXTO técnico e abrangente da transcrição, destacando todos os pontos técnicos relevantes, conceitos importantes e metodologias apresentadas. Não limite o número de parágrafos e priorize a completude das informações técnicas.
+    2) Elabore um TEXTO EXTENSO técnico e abrangente da transcrição, destacando todos os pontos técnicos relevantes, conceitos importantes e metodologias apresentadas. Não limite o número de parágrafos e priorize a completude das informações técnicas. (O Texto técnico deve ter no OBRIGATÓRIAMETNE NO MÍNIMO 3000 palavras e cobrir pelo menos 80% do conteúdo da transcrição original.)
 
-    3) Inclua 3-5 perguntas e respostas baseadas no texto, alternando entre questões técnicas e questões mais simples. Forneça respostas completas e detalhadas.
+    3) Inclua 3-5 perguntas e respostas baseadas no texto, alternando entre questões técnicas e questões mais simples. Forneça respostas completas e detalhadas. (Mínimo de 250 palavras por pergunta e resposta)
 
     4) Com base no resumo acima (tópicos, resumo e perguntas/respostas), utilize o conhecimento e crie 3 copies de exemplo:
        - Uma com foco em residência bucomaxilofacial
        - Duas com tópicos variados relacionados ao conteúdo
+
+    ### Instruções Adicionais sobre Extensão ###
+    - Este é um resumo EXTENSO. Utilize pelo menos 70% do limite de tokens disponível.
+    - Cada tópico principal deve ter no mínimo 300 palavras de explicação.
+    - O resumo técnico deve ter OBRIGATÓRIAMETNE NO MÍNIMO 1500 palavras e cobrir pelo menos 80% do conteúdo da transcrição original.
+    - Cada resposta às perguntas deve ter no mínimo 250 palavras.
 
     ### Texto para Resumir ###
     {transcricao}
@@ -99,7 +105,9 @@ def gerar_resumo(transcricao, client):
     resposta = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=8000
+        max_tokens=16000,
+        temperature = 0.9,
+        top_p = 0.9
     )
     texto_resumo = resposta.choices[0].message.content
 
@@ -179,7 +187,9 @@ def ajustar_resumo(historico, instrucao_usuario, client):
     resposta = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=8000
+        max_tokens=16000,
+        temperature = 0.9,
+        top_p = 0.9
     )
     texto_resumo = resposta.choices[0].message.content
 
