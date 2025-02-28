@@ -56,7 +56,7 @@ def transcrever_audio_whisper(arquivo_audio, client, status_callback=None):
     
     return transcricao_completa.strip()
 
-def gerar_resumo(transcricao, client):
+def gerar_resumo(transcricao, client, model):
     prompt = f"""
     Resuma o seguinte texto em um formato estruturado, transformando-o em algo prático e descontraído para um assistente de IA que fala a língua do dia a dia. Foque nos exemplos práticos da transcrição, trazendo tudo de forma completa e detalhada, sem deixar nada de fora:
 
@@ -102,7 +102,7 @@ def gerar_resumo(transcricao, client):
     Responda só com as seções numeradas, sem enrolação fora delas. Cada seção tem que vir recheada de conteúdo, nada de títulos pelados. NÃO inclua nenhuma seção chamada 'Resumo técnico', apenas 'Resumo prático e completo da transcrição'.
     """
     resposta = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model=model,  # Usa o modelo escolhido pelo usuário
         messages=[{"role": "user", "content": prompt}],
         max_tokens=16000,
         temperature=0.9,
@@ -146,7 +146,7 @@ def gerar_resumo(transcricao, client):
 
     return secoes
 
-def ajustar_resumo(historico, instrucao_usuario, client):
+def ajustar_resumo(historico, instrucao_usuario, client, model):
     historico_texto = "\n\n".join([f"{msg['role'].upper()}: {msg['content'] if isinstance(msg['content'], str) else json.dumps(msg['content'])}" for msg in historico])
 
     resumo_anterior = None
@@ -188,7 +188,7 @@ def ajustar_resumo(historico, instrucao_usuario, client):
     Ajuste o resumo acima APENAS conforme a instrução do usuário. Não gere um novo resumo do zero nem modifique partes que não foram explicitamente solicitadas na instrução. Preserve o formato estruturado com as quatro seções numeradas (1, 2, 3, 4) e mantenha o conteúdo original das seções não afetadas pela instrução. Forneça apenas o resumo ajustado nas seções numeradas, sem comentários adicionais fora delas.
     """
     resposta = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model=model,  # Usa o modelo escolhido pelo usuário
         messages=[{"role": "user", "content": prompt}],
         max_tokens=16000,
         temperature=0.9,
