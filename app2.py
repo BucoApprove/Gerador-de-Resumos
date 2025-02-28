@@ -1,5 +1,5 @@
 import streamlit as st
-from func import (
+from functions import (
     transcrever_audio_whisper, gerar_resumo, get_openai_client, salvar_resumo_json, ajustar_resumo
 )
 import os
