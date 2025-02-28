@@ -1,5 +1,5 @@
 import streamlit as st
-from functions import (
+from func import (
     transcrever_audio_whisper, gerar_resumo, get_openai_client, salvar_resumo_json, ajustar_resumo
 )
 import os
@@ -21,7 +21,7 @@ if "last_output" not in st.session_state:
 if "processing" not in st.session_state:
     st.session_state.processing = False
 if "audio_info" not in st.session_state:
-    st.session_state.audio_info = {"titulo": "", "resumo": None, "transcricao": "", "data_criacao": ""}
+    st.session_state.audio_info = {"titulo": "", "resumo": None, "transcricao": "", "data_criacao": "", "modelo_escolhido": None}
 
 def handle_chat_input():
     if st.session_state.processing:
@@ -32,7 +32,8 @@ def process_pending_messages():
         try:
             historico = st.session_state.chat_history
             user_message = historico[-1]["content"]
-            adjusted_resumo = ajustar_resumo(historico, user_message, client)
+            modelo = st.session_state.audio_info["modelo_escolhido"]
+            adjusted_resumo = ajustar_resumo(historico, user_message, client, modelo)
             st.session_state.chat_history.append({"role": "assistant", "content": adjusted_resumo})
             st.session_state.last_output = adjusted_resumo
             st.session_state.audio_info["resumo"] = adjusted_resumo
@@ -66,15 +67,14 @@ def sanitize_filename(filename):
     return filename
 
 def estimate_tokens(text):
-    """Estima o número de tokens com base em palavras e caracteres (aproximadamente 4 caracteres por token)."""
     if not text:
         return 0
     words = len(text.split())
     chars = len(text)
-    return max(words, chars // 4)  # Usa o maior valor como estimativa conservadora
+    return max(words, chars // 4)
 
 def show_chat(titulo):
-    st.subheader(f"Chat de ajustes - {titulo}")
+    st.subheader(f"Chat de ajustes - {titulo} (Modelo: {st.session_state.audio_info['modelo_escolhido']})")
     
     chat_container = st.container()
     with chat_container:
@@ -144,32 +144,7 @@ def show_chat(titulo):
                     st.session_state.audio_processed = True
                     st.rerun()
 
-def regenerate_summary(transcricao, titulo):
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-    
-    try:
-        status_text.text("Regenerando resumo...")
-        progress_bar.progress(50)
-        resumo_secoes = gerar_resumo(transcricao, client)
-        
-        st.session_state.chat_history = [{"role": "assistant", "content": resumo_secoes}]
-        st.session_state.last_output = resumo_secoes
-        st.session_state.audio_info["resumo"] = resumo_secoes
-        
-        progress_bar.progress(100)
-        status_text.text("Resumo regenerado com sucesso!")
-        time.sleep(1)
-        progress_bar.empty()
-        status_text.empty()
-        
-        st.rerun()
-    except Exception as e:
-        progress_bar.empty()
-        status_text.empty()
-        st.error(f"Erro ao regenerar o resumo: {str(e)}")
-
-def process_audio_file(uploaded_file):
+def transcrever_audio(uploaded_file):
     progress_bar = st.progress(0)
     status_text = st.empty()
     
@@ -185,25 +160,17 @@ def process_audio_file(uploaded_file):
         status_text.text("Iniciando transcrição...")
         transcricao = transcrever_audio_whisper(caminho_temp, client, status_callback=update_status)
         
-        progress_bar.progress(50)
-        
-        status_text.text("Gerando resumo...")
-        resumo_secoes = gerar_resumo(transcricao, client)
-        
-        st.session_state.chat_history = [{"role": "assistant", "content": resumo_secoes}]
-        st.session_state.last_output = resumo_secoes
-        st.session_state.audio_info.update({
-            "titulo": nome_sem_extensao,
-            "resumo": resumo_secoes,
-            "transcricao": transcricao,
-            "data_criacao": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        })
-        
         progress_bar.progress(100)
-        status_text.text("Resumo gerado com sucesso!")
+        status_text.text("Transcrição concluída com sucesso!")
         time.sleep(1)
         progress_bar.empty()
         status_text.empty()
+        
+        st.session_state.audio_info.update({
+            "titulo": nome_sem_extensao,
+            "transcricao": transcricao,
+            "data_criacao": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        })
         
         if os.path.exists(caminho_temp):
             os.remove(caminho_temp)
@@ -212,10 +179,49 @@ def process_audio_file(uploaded_file):
     except Exception as e:
         progress_bar.empty()
         status_text.empty()
-        st.error(f"Erro ao processar o arquivo: {str(e)}")
+        st.error(f"Erro ao transcrever o arquivo: {str(e)}")
+
+def gerar_resumo_com_modelo(modelo):
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    try:
+        status_text.text(f"Gerando resumo com {modelo}...")
+        progress_bar.progress(50)
+        resumo_secoes = gerar_resumo(st.session_state.audio_info["transcricao"], client, modelo)
+        
+        st.session_state.chat_history = [{"role": "assistant", "content": resumo_secoes}]
+        st.session_state.last_output = resumo_secoes
+        st.session_state.audio_info["resumo"] = resumo_secoes
+        st.session_state.audio_info["modelo_escolhido"] = modelo
+        
+        progress_bar.progress(100)
+        status_text.text("Resumo gerado com sucesso!")
+        time.sleep(1)
+        progress_bar.empty()
+        status_text.empty()
+        
+        st.rerun()
+    except Exception as e:
+        progress_bar.empty()
+        status_text.empty()
+        st.error(f"Erro ao gerar o resumo: {str(e)}")
 
 def generate_interface():
     st.title("Gerar Resumo de Áudio")
+    
+    st.write("**Formatos suportados:** MP3, WAV, M4A")
+    st.write("Carregue um arquivo de áudio para transcrever e depois escolha um modelo para gerar o resumo.")
+    
+    uploaded_file = st.file_uploader(
+        "Carregue seu arquivo de áudio",
+        type=["mp3", "wav", "m4a"],
+        accept_multiple_files=False
+    )
+    
+    if uploaded_file and not st.session_state.audio_info["transcricao"]:
+        if st.button("Transcrever Áudio", key="transcribe_button"):
+            transcrever_audio(uploaded_file)
     
     if st.session_state.audio_info["transcricao"]:
         st.subheader("Transcrição do Áudio")
@@ -228,33 +234,22 @@ def generate_interface():
             unsafe_allow_html=True
         )
         transcricao_tokens = estimate_tokens(st.session_state.audio_info["transcricao"])
-        resumo_tokens = estimate_tokens(
-            st.session_state.audio_info["resumo"]["pontos_principais"] + " " +
-            st.session_state.audio_info["resumo"]["resumo_pratico"] + " " +
-            st.session_state.audio_info["resumo"]["perguntas_respostas"] + " " +
-            st.session_state.audio_info["resumo"]["exemplos_copy"]
-        )
-        st.write(f"**Estimativa de Tokens Usados:**")
-        st.write(f"- Transcrição: ~{transcricao_tokens} tokens")
-        st.write(f"- Resumo Gerado: ~{resumo_tokens} tokens")
-        st.write(f"- Total Estimado: ~{transcricao_tokens + resumo_tokens} tokens")
-        st.markdown("*(Nota: Esta é uma estimativa aproximada baseada em ~4 caracteres por token.)*")
-
-    st.write("**Formatos suportados:** MP3, WAV, M4A")
-    st.write("Carregue um arquivo de áudio por vez para gerar o resumo.")
-    
-    uploaded_file = st.file_uploader(
-        "Carregue seu arquivo de áudio",
-        type=["mp3", "wav", "m4a"],
-        accept_multiple_files=False
-    )
-    
-    if not st.session_state.audio_info["resumo"]:
-        if st.button("Gerar Resumo", key="audio_button", disabled=not uploaded_file):
-            process_audio_file(uploaded_file)
+        st.write(f"**Estimativa de Tokens da Transcrição:** ~{transcricao_tokens} tokens")
+        
+        st.subheader("Escolha um Modelo para Gerar o Resumo")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("Gerar com GPT-4o Mini", key="gpt4o_mini"):
+                gerar_resumo_com_modelo("gpt-4o-mini")
+        with col2:
+            if st.button("Gerar com o1-mini", key="o1-mini"):
+                gerar_resumo_com_modelo("o1-mini")
+        with col3:
+            if st.button("Gerar com o3-mini", key="o3-mini"):
+                gerar_resumo_com_modelo("o3-mini")
     
     if st.session_state.audio_info["resumo"]:
-        st.success("Resumo gerado com sucesso!")
+        st.success(f"Resumo gerado com {st.session_state.audio_info['modelo_escolhido']}!")
         
         st.write(f"**Arquivo:** {st.session_state.audio_info['titulo']}")
         st.write("**Último Resumo Atualizado:**")
@@ -268,6 +263,14 @@ def generate_interface():
         st.write("4) Exemplos de copy:")
         st.write(ultimo_resumo.get("exemplos_copy", "Não disponível"))
         
+        resumo_tokens = estimate_tokens(
+            ultimo_resumo["pontos_principais"] + " " +
+            ultimo_resumo["resumo_pratico"] + " " +
+            ultimo_resumo["perguntas_respostas"] + " " +
+            ultimo_resumo["exemplos_copy"]
+        )
+        st.write(f"**Estimativa de Tokens do Resumo:** ~{resumo_tokens} tokens")
+        
         if st.download_button(
             label="Baixar JSON",
             data=salvar_resumo_json(st.session_state.audio_info, st.session_state.audio_info["titulo"], return_bytes=True),
@@ -276,8 +279,17 @@ def generate_interface():
         ):
             st.success("JSON baixado com sucesso!")
         
-        if st.button("Regenerar Resumo", key="regen_audio"):
-            regenerate_summary(st.session_state.audio_info["transcricao"], st.session_state.audio_info["titulo"])
+        st.subheader("Tente Outro Modelo")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("Regenerar com GPT-4o Mini", key="regen_gpt4o_mini"):
+                gerar_resumo_com_modelo("gpt-4o-mini")
+        with col2:
+            if st.button("Regenerar com o1-mini", key="regen_o1-mini"):
+                gerar_resumo_com_modelo("o1-mini")
+        with col3:
+            if st.button("Regenerar com o3-mini", key="regen_o3-mini"):
+                gerar_resumo_com_modelo("o3-mini")
         
         st.markdown(
             """
@@ -289,7 +301,7 @@ def generate_interface():
         show_chat(st.session_state.audio_info["titulo"])
     
     if st.button("Processar Novo Arquivo", key="new_audio"):
-        st.session_state.audio_info = {"titulo": "", "resumo": None, "transcricao": "", "data_criacao": ""}
+        st.session_state.audio_info = {"titulo": "", "resumo": None, "transcricao": "", "data_criacao": "", "modelo_escolhido": None}
         st.session_state.chat_history = []
         st.session_state.last_output = None
         st.rerun()
