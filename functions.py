@@ -9,7 +9,7 @@ import io
 def get_openai_client(api_key):
     return OpenAI(api_key=api_key)
 
-def dividir_audio_em_chunks(arquivo_audio, duracao_maxima=300):
+def dividir_audio_em_chunks(arquivo_audio, duracao_maxima=180):
     audio = AudioFileClip(arquivo_audio)
     duracao_total = audio.duration
     
